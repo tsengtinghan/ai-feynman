@@ -169,7 +169,12 @@ const Chat = ({
     } catch (error) {
       console.error("Failed to send message:", error);
     } finally {
-      setInputDisabled(false);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { role: "user", text: userInput },
+      ]);
+      setUserInput("");
+      setInputDisabled(true);
       scrollToBottom();
     }
   };

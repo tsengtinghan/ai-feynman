@@ -142,25 +142,42 @@ const Chat = ({
     handleReadableStream(stream);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!userInput.trim()) return;
-    sendMessage(userInput);
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      { role: "user", text: userInput },
-    ]);
-    setUserInput("");
-    setInputDisabled(true);
-    scrollToBottom();
+    if (!userInput.trim() && !image) return;
+
+    const formData = new FormData();
+    formData.append("question", userInput);
+    if (image) {
+      formData.append("image", image); // Append the file object directly
+    }
+
+    try {
+      const response = await fetch(
+        `/api/assistants/threads/${threadId}/messages`,
+        {
+          method: "POST",
+          body: formData, // Send formData directly without setting Content-Type header
+        }
+      );
+      const stream = AssistantStream.fromReadableStream(response.body);
+      handleReadableStream(stream);
+
+      if (!response.ok) throw new Error("Network response was not ok.");
+
+      // Handle response stream etc.
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    } finally {
+      setInputDisabled(false);
+      scrollToBottom();
+    }
   };
 
   const handleFileChange = (event) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      setImage(file);
-      setImageUrl(URL.createObjectURL(file));
-    }
+    const file = event.target.files[0];
+    setImage(file);
+    setImageUrl(URL.createObjectURL(file));
   };
 
   const handlePaste = (event) => {
@@ -306,6 +323,7 @@ const Chat = ({
       >
         <input
           type="text"
+          name="question"
           className={styles.input}
           value={userInput}
           onChange={(e) => setUserInput(e.target.value)}
@@ -314,6 +332,7 @@ const Chat = ({
         />
         <input
           type="file"
+          name="image"
           accept="image/*"
           style={{ display: "none" }}
           ref={fileInputRef}

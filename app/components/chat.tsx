@@ -159,7 +159,7 @@ const Chat = ({
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
       setImage(file);
-      setImageUrl(URL.createObjectURL(file)); // Create a URL for the image
+      setImageUrl(URL.createObjectURL(file));
     }
   };
 
@@ -170,7 +170,8 @@ const Chat = ({
       if (item.type.indexOf("image") === 0) {
         const file = item.getAsFile();
         setImage(file);
-        setImageUrl(URL.createObjectURL(file)); // Create a URL for the pasted image
+        setImageUrl(URL.createObjectURL(file));
+        event.preventDefault(); // Prevent the default paste action
       }
     }
   };
@@ -309,14 +310,36 @@ const Chat = ({
           value={userInput}
           onChange={(e) => setUserInput(e.target.value)}
           placeholder="Enter your question"
+          onPaste={handlePaste}
         />
+        <input
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          ref={fileInputRef}
+          onChange={handleFileChange}
+        />
+        <button
+          type="button"
+          className={styles.button}
+          onClick={() => fileInputRef.current && fileInputRef.current.click()}
+        >
+          Upload Image
+        </button>
         <button
           type="submit"
           className={styles.button}
-          disabled={inputDisabled}
+          disabled={!userInput && !image}
         >
           Send
         </button>
+        {imageUrl && (
+          <img
+            src={imageUrl}
+            alt="Uploaded"
+            style={{ maxWidth: "50%", maxHeight: "100px" }}
+          />
+        )}
       </form>
     </div>
   );

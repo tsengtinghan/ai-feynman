@@ -7,10 +7,28 @@ import Markdown from "react-markdown";
 // @ts-expect-error - no types for this yet
 import { AssistantStreamEvent } from "openai/resources/beta/assistants/assistants";
 import { RequiredActionFunctionToolCall } from "openai/resources/beta/threads/runs/runs";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 
 type MessageProps = {
   role: "user" | "assistant" | "code";
   text: string;
+};
+
+export const preprocessLaTeX = (content: string) => {
+  // Replace block-level LaTeX delimiters \[ \] with $$ $$
+
+  const blockProcessedContent = content.replace(
+    /\\\[(.*?)\\\]/gs,
+    (_, equation) => `$$${equation}$$`
+  );
+  // Replace inline LaTeX delimiters \( \) with $ $
+  const inlineProcessedContent = blockProcessedContent.replace(
+    /\\\((.*?)\\\)/gs,
+    (_, equation) => `$${equation}$`
+  );
+  return inlineProcessedContent;
 };
 
 const UserMessage = ({ text }: { text: string }) => {
@@ -18,9 +36,12 @@ const UserMessage = ({ text }: { text: string }) => {
 };
 
 const AssistantMessage = ({ text }: { text: string }) => {
+  const processedText = preprocessLaTeX(text);
   return (
     <div className={styles.assistantMessage}>
-      <Markdown>{text}</Markdown>
+      <Markdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+        {processedText}
+      </Markdown>
     </div>
   );
 };
@@ -64,6 +85,9 @@ const Chat = ({
   const [messages, setMessages] = useState([]);
   const [inputDisabled, setInputDisabled] = useState(false);
   const [threadId, setThreadId] = useState("");
+  const [image, setImage] = useState(null);
+  const [imageUrl, setImageUrl] = useState("");
+  const fileInputRef = useRef(null);
 
   // automatically scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -131,6 +155,26 @@ const Chat = ({
     scrollToBottom();
   };
 
+  const handleFileChange = (event) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      setImage(file);
+      setImageUrl(URL.createObjectURL(file)); // Create a URL for the image
+    }
+  };
+
+  const handlePaste = (event) => {
+    const items = (event.clipboardData || event.originalEvent.clipboardData)
+      .items;
+    for (const item of items) {
+      if (item.type.indexOf("image") === 0) {
+        const file = item.getAsFile();
+        setImage(file);
+        setImageUrl(URL.createObjectURL(file)); // Create a URL for the pasted image
+      }
+    }
+  };
+
   /* Stream Event Handlers */
 
   // textCreated - create new assistant message
@@ -142,7 +186,7 @@ const Chat = ({
   const handleTextDelta = (delta) => {
     if (delta.value != null) {
       appendToLastMessage(delta.value);
-    };
+    }
     if (delta.annotations != null) {
       annotateLastMessage(delta.annotations);
     }
@@ -151,7 +195,7 @@ const Chat = ({
   // imageFileDone - show image in chat
   const handleImageFileDone = (image) => {
     appendToLastMessage(`\n![${image.file_id}](/api/files/${image.file_id})\n`);
-  }
+  };
 
   // toolCallCreated - log new tool call
   const toolCallCreated = (toolCall) => {
@@ -236,17 +280,16 @@ const Chat = ({
         ...lastMessage,
       };
       annotations.forEach((annotation) => {
-        if (annotation.type === 'file_path') {
+        if (annotation.type === "file_path") {
           updatedLastMessage.text = updatedLastMessage.text.replaceAll(
             annotation.text,
             `/api/files/${annotation.file_path.file_id}`
           );
         }
-      })
+      });
       return [...prevMessages.slice(0, -1), updatedLastMessage];
     });
-    
-  }
+  };
 
   return (
     <div className={styles.chatContainer}>

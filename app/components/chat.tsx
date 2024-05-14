@@ -14,6 +14,7 @@ import "katex/dist/katex.min.css";
 type MessageProps = {
   role: "user" | "assistant" | "code";
   text: string;
+  imageUrl?: string;
 };
 
 export const preprocessLaTeX = (content: string) => {
@@ -31,8 +32,13 @@ export const preprocessLaTeX = (content: string) => {
   return inlineProcessedContent;
 };
 
-const UserMessage = ({ text }: { text: string }) => {
-  return <div className={styles.userMessage}>{text}</div>;
+const UserMessage = ({ text, imageUrl }: { text: string; imageUrl?: string }) => {
+  return (
+    <div className={styles.userMessage}>
+      {text}
+      {imageUrl && <img src={imageUrl} alt="Uploaded" style={{ maxWidth: "50%", maxHeight: "100px" }} />}
+    </div>
+  );
 };
 
 const AssistantMessage = ({ text }: { text: string }) => {
@@ -59,10 +65,10 @@ const CodeMessage = ({ text }: { text: string }) => {
   );
 };
 
-const Message = ({ role, text }: MessageProps) => {
+const Message = ({ role, text, imageUrl }: MessageProps) => {
   switch (role) {
     case "user":
-      return <UserMessage text={text} />;
+      return <UserMessage text={text} imageUrl={imageUrl} />;
     case "assistant":
       return <AssistantMessage text={text} />;
     case "code":
@@ -88,12 +94,15 @@ const Chat = ({
   const [image, setImage] = useState(null);
   const [imageUrl, setImageUrl] = useState("");
   const fileInputRef = useRef(null);
+  const chatContainerRef = useRef(null);
 
   // automatically scroll to bottom of chat
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   };
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -171,9 +180,11 @@ const Chat = ({
     } finally {
       setMessages((prevMessages) => [
         ...prevMessages,
-        { role: "user", text: userInput },
+        { role: "user", text: userInput, imageUrl: image ? URL.createObjectURL(image) : undefined },
       ]);
       setUserInput("");
+      setImage(null);
+      setImageUrl("");
       setInputDisabled(true);
       scrollToBottom();
     }
@@ -292,8 +303,8 @@ const Chat = ({
     });
   };
 
-  const appendMessage = (role, text) => {
-    setMessages((prevMessages) => [...prevMessages, { role, text }]);
+  const appendMessage = (role, text, imageUrl) => {
+    setMessages((prevMessages) => [...prevMessages, { role, text, imageUrl }]);
   };
 
   const annotateLastMessage = (annotations) => {
@@ -316,11 +327,10 @@ const Chat = ({
 
   return (
     <div className={styles.chatContainer}>
-      <div className={styles.messages}>
+      <div className={styles.messages} ref={chatContainerRef}>
         {messages.map((msg, index) => (
-          <Message key={index} role={msg.role} text={msg.text} />
+          <Message key={index} role={msg.role} text={msg.text} imageUrl={msg.imageUrl} />
         ))}
-        <div ref={messagesEndRef} />
       </div>
       <form
         onSubmit={handleSubmit}
